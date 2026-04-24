@@ -1,17 +1,26 @@
-//
-//  app_lockerApp.swift
-//  app_locker
-//
-//  Created by sub on 2026/04/24.
-//
-
 import SwiftUI
+import FamilyControls // これを追加！
 
 @main
-struct app_lockerApp: App {
+struct AppLockerPrototypeApp: App {
+    // 権限を管理するセンター
+    let center = AuthorizationCenter.shared
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    // アプリ起動時に権限を要求する
+                    Task {
+                        do {
+                            try await center.requestAuthorization(for: .individual)
+                            print("承認されました！")
+                        } catch {
+                            print("承認エラー: \(error.localizedDescription)")
+                        }
+                    }
+                }
         }
     }
 }
+
