@@ -1,26 +1,41 @@
 import SwiftUI
-import FamilyControls // これを追加！
+import SwiftData
+import FamilyControls
 
 @main
-struct AppLockerPrototypeApp: App {
-    // 権限を管理するセンター
-    let center = AuthorizationCenter.shared
+struct AppLockerApp: App {
+    @StateObject private var appVM = AppViewModel()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onAppear {
-                    // アプリ起動時に権限を要求する
-                    Task {
-                        do {
-                            try await center.requestAuthorization(for: .individual)
-                            print("承認されました！")
-                        } catch {
-                            print("承認エラー: \(error.localizedDescription)")
-                        }
-                    }
-                }
+            RootView()
+                .environmentObject(appVM)
         }
+        .modelContainer(for: [
+            SessionRecord.self,
+            CustomOption.self,
+            DailyLog.self,
+            DailyAppStat.self,
+            AppSettings.self,
+        ])
     }
 }
 
+/// Thin wrapper that owns the model context and wires up app-level concerns.
+struct RootView: View {
+    @Environment(\.modelContext) private var context
+    @EnvironmentObject private var appVM: AppViewModel
+    @Query private var settingsList: [AppSettings]
+
+    var body: some View {
+        ContentView()
+            .onOpenURL { url in
+                appVM.handleDeepLink(url, context: context)
+            }
+            .task {
+                await appVM.lockService.requestAuthorization()
+                await NotificationService.shared.requestPermission()
+                appVM.bootstrap(settings: settingsList.first)
+            }
+    }
+}
